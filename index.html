@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Black Box</title>
+<meta charset="utf-8" />
+<style>
+body{
+	background: black;
+	color: silver;
+}
+
+.board__tile {
+	display: inline-block;
+	vertical-align: bottom;
+	box-sizing: border-box;
+	width: 64px;
+	height: 64px;
+	background-color: blue;
+	border: 8px outset blue;
+}
+
+.board__gem {
+	display: inline-block;
+	vertical-align: bottom;
+	box-sizing: border-box;
+	width: 64px;
+	height: 64px;
+	margin: -32px;
+	position: relative;
+	z-index: 1;
+	transform: matrix(0.5,0.5,0.5,-0.5,0,0);
+}
+
+.board__gem:hover {
+	background-color: rgba(0, 0, 0, 0.2);
+}
+
+.board__gem.board__gem--visible {
+	background-color: maroon;
+	box-shadow: 0 0 32px red inset;
+}
+
+.board__gem.board__gem--visible:hover {
+	background-color: green;
+	box-shadow: 0 0 32px lime inset;
+}
+
+.board__gem--real {
+	-x-border: 1px solid cyan;
+}
+
+.board__trigger {
+	display: inline-block;
+	vertical-align: bottom;
+	box-sizing: border-box;
+	width: 64px;
+	height: 64px;
+	background-color: gray;
+	border: 8px outset gray;
+}
+
+.board__trigger--good {
+	background-color: green;
+	border-color: green;
+}
+
+.board__trigger--in {
+	background-color: orange;
+	border-color: orange;
+}
+
+.board__trigger--out {
+	background-color: red;
+	border-color: red;
+}
+
+.board__trigger--out.board__trigger--in {
+	background-color: pink;
+	border-color: pink;
+}
+
+.board__top, .board__bottom {
+	padding-left: 64px;
+}
+.board__left {
+	width: 64px;
+	float: left;
+}
+
+.board__top .board__trigger {}
+.board__left .board__trigger {}
+.board__bottom .board__trigger {}
+
+</style>
+<script src="js/jquery.js"></script>
+<script>
+(function () {
+	var WIDTH = 10;
+	var HEIGHT = 8;
+
+	$(function () {
+		var x, y;
+
+		function findpair(x, y, gemclass) {
+			var dx = 0, dy = 0;
+
+			function gemat(x, y) {
+				return $('[data-x=' + x + '][data-y=' + y +'].' + gemclass).length > 0;
+			}
+
+			// initial directions
+			if (x == -1) {
+				dx = 1;
+			}
+			if (y == -1) {
+				dy = 1;
+			}
+			if (y == HEIGHT + 1) {
+				dy = -1;
+			}
+
+			do {
+				x += dx;
+				y += dy;
+
+				/* step */
+				if (dx == 1) {
+					if (gemat(x, y - 1) && gemat(x, y)) {
+						dx = -1;
+					} else if (gemat(x, y - 1)) {
+						dx = 0;
+						dy = 1;
+					} else if (gemat(x, y)) {
+						dx = 0;
+						dy = -1;
+					} 
+				} else if (dy == 1) {
+					if (gemat(x - 1, y) && gemat(x, y)) {
+						dy = -1;
+					} else if (gemat(x - 1, y)) {
+						dx = 1;
+						dy = 0;
+					} else if (gemat(x, y)) {
+						dx = -1;
+						dy = 0;
+					}
+				} else if (dx == -1) {
+					if (gemat(x - 1, y - 1) && gemat(x - 1, y)) {
+						dx = 1;
+					} else if (gemat(x - 1, y - 1)) {
+						dx = 0;
+						dy = 1;
+					} else if (gemat(x - 1, y)) {
+						dx = 0;
+						dy = -1;
+					}
+				} else if (dy == -1) {
+					if (gemat(x - 1, y - 1) && gemat(x, y - 1)) {
+						dy = 1;
+					} else if (gemat(x - 1, y - 1)) {
+						dx = 1;
+						dy = 0;
+					} else if (gemat(x, y - 1)) {
+						dx = -1;
+						dy = 0;
+					}
+				}
+				/* end step */
+			} while ((x >= 0) && (x <= WIDTH) && (y >= 0) && (y <= HEIGHT));
+
+			return [x, y];
+		}
+
+		for (y = 0; y < HEIGHT + 1; y++) {
+			for (x = 0; x < WIDTH + 1; x++) {
+				$('<span class="board__tile" data-x="' + x + '" data-y="' + y + '"></span>').appendTo('.board__tiles');
+				if (y < HEIGHT && x < WIDTH) {
+					$('<span class="board__gem" data-x="' + x + '" data-y="' + y + '"></span>').appendTo('.board__tiles');
+				}
+			}
+			$('<br />').appendTo('.board__tiles');
+			$('<span class="board__trigger" data-x="-1" data-y="' + y + '"></span>').appendTo('.board__left');
+		}
+
+		for (x = 0; x < WIDTH + 1; x++) {
+			$('<span class="board__trigger" data-x="' + x + '" data-y="-1"></span>').appendTo('.board__top');
+			$('<span class="board__trigger" data-x="' + x + '" data-y="' + (HEIGHT + 1) + '"></span>').appendTo('.board__bottom');
+		}
+
+		function redraw() {
+			$('.board__trigger').each(function () {
+				var a = findpair(+$(this).data('x'), +$(this).data('y'), 'board__gem--visible');
+				var b = findpair(+$(this).data('x'), +$(this).data('y'), 'board__gem--real');
+
+				if (a[0] == b[0] && a[1] == b[1]) {
+					$(this).addClass('board__trigger--good');
+				} else {
+					$(this).removeClass('board__trigger--good');
+				}
+			});
+		}
+
+		function newgame() {
+			$('.board__gem').removeClass('board__gem--real board__gem--visible').filter(function () {
+				return Math.random() < 0.25;
+			}).addClass('board__gem--real');
+
+			redraw();
+		}
+
+		$(document).on('click', '.board__gem', function () {
+			$(this).toggleClass('board__gem--visible');
+			redraw();
+		});
+
+		$(document).on('click', '.board__trigger', function () {
+			var pair = findpair(+$(this).data('x'), +$(this).data('y'), 'board__gem--real');
+
+			var $other = $('[data-x=' + pair[0] + '][data-y=' + pair[1] +']');
+
+			var $this = $(this);
+
+			$this.addClass('board__trigger--in');
+			$other.addClass('board__trigger--out');
+
+			setTimeout(function () {
+				$this.removeClass('board__trigger--in');
+				$other.removeClass('board__trigger--out');
+			}, 200);
+		});
+
+		$('button').click(newgame);
+		redraw();
+	});
+}());
+</script>
+</head>
+<body>
+
+<div class="board">
+	<div class="board__top"></div>
+	<div class="board__left"></div>
+	<div class="board__tiles"></div>
+	<div class="board__bottom"></div>
+</div>
+
+<button>Moar</button>
+
+</body>
+</html>
